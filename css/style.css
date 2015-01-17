@@ -1,0 +1,83 @@
+/*
+Creator: Dragon Prince
+Date: 25.09.2011
+Time: 12.02 PM
+*/
+
+body
+{
+background-image:url('../images/backgnd.jpg');
+}
+
+#box
+{
+position: absolute;
+display: inline-block;
+background: #eee;
+width: 545px;
+height: 450px;
+left: 25%;
+top: 15%;
+border:1px solid black;
+opacity:0.9;
+filter:alpha(opacity=90); /* For IE8 and earlier */
+}
+
+#score
+{
+position: absolute;
+display: inline-block;
+background: #eee;
+width: 75px;
+height: 50px;
+left: 1%;
+top: 1%;
+border:1px solid black;
+opacity:0.8;
+filter:alpha(opacity=80); /* For IE8 and earlier */
+}
+
+#alert
+{
+position: absolute;
+display: inline-block;
+background: #eee;
+width: 175px;
+height: 50px;
+left: 75%;
+top: 1%;
+border:1px solid black;
+opacity:0.8;
+filter:alpha(opacity=80); /* For IE8 and earlier */
+}
+
+#plane /*this lies inside the box*/
+{
+position: absolute;
+width: 100%; 
+height: 21px;
+bottom: 0;
+overflow-x: scroll;
+overflow-y: hidden;
+}
+
+#paddle /*this lies inside the plane*/
+{
+position: absolute;
+bottom: 0;
+overflow-x: scroll;
+overflow-y: hidden;
+}
+
+#ball, #brick
+{
+position: absolute;
+}
+
+#counter
+{
+position: absolute;
+font-size: 50px;
+font-weight: bold;
+text-shadow: 0px -1px #fff;
+}
