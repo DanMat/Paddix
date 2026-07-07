@@ -94,14 +94,19 @@ body {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	justify-content: center;
+	/* `safe center` keeps content centred when it fits, but falls back to
+	   top-aligned + scrollable when it's taller than the playfield, so nothing
+	   (titles, buttons) is ever clipped out of reach. */
+	justify-content: safe center;
+	overflow-y: auto;
 	gap: 14px;
-	padding: 24px;
+	padding: 22px;
 	text-align: center;
 	background: rgba(5, 6, 16, .82);
 	backdrop-filter: blur(2px);
 	z-index: 5;
 }
+.screen > *:not(.lb-scroll) { flex-shrink: 0; }
 /* hidden must beat display:flex, or invisible screens would eat clicks. */
 .screen[hidden] { display: none; }
 
@@ -181,17 +186,33 @@ body {
 
 /* ----------------------------- leaderboard ---------------------------- */
 
+/* The row list scrolls within a bounded height so the header and the
+   Play again / Main menu buttons stay visible no matter how many rows. */
+.lb-scroll {
+	width: 100%;
+	/* Fill the space left between the title and the buttons, and scroll the
+	   overflow. min-height:0 lets it shrink below its content in a flex column
+	   (without it, flex items refuse to shrink and would push the buttons out). */
+	flex: 0 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	display: flex;
+	justify-content: center;
+}
 .lb {
 	width: min(100%, 380px);
 	border-collapse: collapse;
 	font-size: 14px;
 }
-.lb th {
+.lb thead th {
+	position: sticky;
+	top: 0;
+	background: #0a0c1c;
 	font-family: var(--pixel);
 	font-size: 8px;
 	color: var(--muted);
 	text-align: left;
-	padding: 4px 8px 10px;
+	padding: 6px 8px 10px;
 	letter-spacing: 1px;
 }
 .lb td { padding: 7px 8px; border-top: 1px solid rgba(255, 255, 255, .08); }
