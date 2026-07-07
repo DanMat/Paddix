@@ -9,8 +9,8 @@
  */
 window.PADDIX_CONFIG = {
 	// Leave blank to use the local (per-browser) leaderboard.
-	supabaseUrl: '',        // e.g. 'https://abcdefgh.supabase.co'
-	supabaseAnonKey: '',    // the public anon/publishable key
+	supabaseUrl: 'https://ukgzauknjbeotyfyvyva.supabase.co',
+	supabaseAnonKey: 'sb_publishable_9UoiuT32HIMAVhBhOCvlOw_BfvMAbBT',    // the public anon/publishable key
 
 	// Identifies this game's rows in the shared `scores` table.
 	gameId: 'paddix',
