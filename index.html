@@ -93,10 +93,12 @@
 			<div class="screen" id="screenLeaderboard" hidden>
 				<h2 class="screen-title" id="lbTitle">High Scores</h2>
 				<p class="screen-sub">Top scores · <span id="lbMode">this device</span></p>
-				<table class="lb">
-					<thead><tr><th>#</th><th>Name</th><th>Score</th><th>Stage</th></tr></thead>
-					<tbody id="lbBody"></tbody>
-				</table>
+				<div class="lb-scroll">
+					<table class="lb">
+						<thead><tr><th>#</th><th>Name</th><th>Score</th><th>Stage</th></tr></thead>
+						<tbody id="lbBody"></tbody>
+					</table>
+				</div>
 				<div class="btns">
 					<button class="btn btn--primary" id="btnLbAgain">Play again</button>
 					<button class="btn" id="btnLbMenu">Main menu</button>
