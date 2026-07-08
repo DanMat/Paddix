@@ -19,7 +19,7 @@
 
 	var clamp = Retroix.util.clamp, rand = Retroix.util.rand, hypot = Retroix.util.hypot;
 
-	var view, ctx, board, screens, initEntry;   // Retroix-provided
+	var view, ctx, board, screens, initEntry, fx, sfx;   // Retroix-provided
 	var el = {};
 
 	// --- game state ---
@@ -29,7 +29,6 @@
 	var timers = { wide: 0, slow: 0 };
 	var input = { mouseX: null, left: false, right: false };
 	var introTimer = 0;
-	var shake = 0;
 
 	var POWER = {
 		wide:  { label: 'W', color: '#4cd964', name: 'Wide paddle' },
@@ -45,6 +44,8 @@
 	function boot() {
 		view = Retroix.canvas('#game', LOGICAL.w, LOGICAL.h);
 		ctx = view.ctx;
+		fx = Retroix.fx(view);
+		sfx = Retroix.audio();
 		board = Retroix.leaderboard(window.PADDIX_CONFIG);
 		screens = Retroix.screens(document);
 		[
@@ -115,6 +116,7 @@
 				var sp = targetSpeed();
 				ball.vx = Math.sin(ang) * sp;
 				ball.vy = -Math.abs(Math.cos(ang) * sp);
+				sfx.jump();
 			}
 		});
 	}
@@ -142,13 +144,14 @@
 	function loseLife() {
 		lives--;
 		updateHud();
-		shake = 12;
+		fx.shake(0.7); fx.flash('#ff5e7e', 0.35); sfx.explosion();
 		if (lives <= 0) { return endGame(false); }
 		resetBall();
 	}
 
 	function stageCleared() {
 		score += 500;
+		sfx.jingle('levelup');
 		if (stageIndex >= STAGES.length - 1) { return endGame(true); }
 		stageIndex++;
 		loadStage(stageIndex);
@@ -158,7 +161,8 @@
 	function endGame(won) {
 		state = 'ending';
 		wonFlag = won;
-		if (won) { score += lives * 200; }
+		if (won) { score += lives * 200; sfx.jingle('win'); }
+		else { sfx.jingle('gameover'); }
 		board.qualifies(score).then(function (ok) {
 			if (ok) { showInitials(); }
 			else { showGameover(won); }
@@ -217,6 +221,7 @@
 	/* ------------------------------- update ------------------------------- */
 
 	function step(dt) {
+		fx.update(dt);
 		if (state === 'playing') { update(dt); }
 		else if (state === 'intro') {
 			introTimer -= dt;
@@ -233,7 +238,6 @@
 		updateParticles(f);
 		if (timers.wide > 0) { timers.wide -= dt; if (timers.wide <= 0) { paddle.w = paddle.baseW; } }
 		if (timers.slow > 0) { timers.slow -= dt; }
-		if (shake > 0) { shake = Math.max(0, shake - f); }
 		checkStageClear();
 	}
 
@@ -270,6 +274,7 @@
 					ball.y = PADDLE_Y - BALL_R - 1;
 					combo = 0;
 					updateCombo();
+					sfx.blip();
 				}
 			}
 
@@ -303,15 +308,16 @@
 	}
 
 	function hitBrick(b) {
-		if (b.type === 'unbreakable') { spawnParticles(b, '#ffffff', 3); return; }
+		if (b.type === 'unbreakable') { spawnParticles(b, '#ffffff', 3); sfx.hit(); return; }
 		b.hp--;
 		score += 10;
-		if (b.hp > 0) { spawnParticles(b, brickColor(b), 4); updateHud(); return; }
+		if (b.hp > 0) { spawnParticles(b, brickColor(b), 4); sfx.hit(); updateHud(); return; }
 
 		b.alive = false;
 		combo++;
 		score += 50 + combo * 10;
 		spawnParticles(b, brickColor(b), 10);
+		sfx.coin();
 		if (b.type === 'powerup' || Math.random() < stage.powerUpChance) { spawnPowerup(b); }
 		updateHud();
 		updateCombo();
@@ -356,6 +362,8 @@
 			});
 			balls = balls.concat(extra);
 		}
+		sfx.powerup();
+		fx.flash(POWER[kind].color, 0.2);
 		flashPower(kind);
 	}
 
@@ -386,8 +394,7 @@
 	/* -------------------------------- render ------------------------------ */
 
 	function render() {
-		ctx.save();
-		if (shake > 0) { ctx.translate(rand(-shake, shake) * 0.4, rand(-shake, shake) * 0.4); }
+		fx.preRender(ctx);
 
 		var g = ctx.createLinearGradient(0, 0, 0, LOGICAL.h);
 		g.addColorStop(0, stage ? stage.bg[0] : '#141e30');
@@ -402,7 +409,7 @@
 			drawBalls();
 			drawParticles();
 		}
-		ctx.restore();
+		fx.postRender(ctx);
 	}
 
 	function drawBricks() {
@@ -556,6 +563,7 @@
 				e.preventDefault();
 			}
 			else if (k === 'p' || k === 'P' || k === 'Escape') { togglePause(); }
+			else if (k === 'm' || k === 'M') { sfx.toggle(); }
 		});
 		document.addEventListener('keyup', function (e) {
 			if (e.key === 'ArrowLeft') { input.left = false; }
