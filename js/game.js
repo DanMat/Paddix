@@ -1,9 +1,9 @@
 /*
- * Paddix — a canvas brick-breaker.
+ * Paddix — a canvas brick-breaker, built on the Retroix engine.
  *
- * Rebuilt from the original 2011 jQuery/DOM version into a dependency-free
- * canvas game: 8 themed stages, power-ups, combos, lives and a retro
- * high-score leaderboard (see leaderboard.js).
+ * The shared plumbing (canvas, game loop, input, leaderboard, overlay screens,
+ * retro initials entry, gfx helpers) comes from Retroix; this file is just the
+ * brick-breaker: 8 themed stages, power-ups, combos and lives.
  */
 (function () {
 	'use strict';
@@ -17,13 +17,14 @@
 	var PADDLE_H = 15;
 	var BALL_R = 8;
 
-	var canvas, ctx, dpr = 1;
+	var clamp = Retroix.util.clamp, rand = Retroix.util.rand, hypot = Retroix.util.hypot;
+
+	var view, ctx, board, screens, initEntry;   // Retroix-provided
 	var el = {};
-	var raf, lastTime;
 
 	// --- game state ---
 	var state = 'title';
-	var stageIndex = 0, score = 0, lives = 3, combo = 0;
+	var stageIndex = 0, score = 0, lives = 3, combo = 0, wonFlag = false;
 	var stage, paddle, balls, bricks, powerups, particles;
 	var timers = { wide: 0, slow: 0 };
 	var input = { mouseX: null, left: false, right: false };
@@ -37,50 +38,29 @@
 		life:  { label: '+', color: '#ff5e7e', name: 'Extra life' }
 	};
 
-	/* ------------------------------ helpers ------------------------------- */
-
-	function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
-	function rand(a, b) { return a + Math.random() * (b - a); }
-	function hypot(x, y) { return Math.sqrt(x * x + y * y); }
-
-	function roundRect(x, y, w, h, r) {
-		ctx.beginPath();
-		ctx.moveTo(x + r, y);
-		ctx.arcTo(x + w, y, x + w, y + h, r);
-		ctx.arcTo(x + w, y + h, x, y + h, r);
-		ctx.arcTo(x, y + h, x, y, r);
-		ctx.arcTo(x, y, x + w, y, r);
-		ctx.closePath();
-	}
+	function roundRect(x, y, w, h, r) { Retroix.gfx.roundRect(ctx, x, y, w, h, r); }
 
 	/* ------------------------------- setup -------------------------------- */
 
 	function boot() {
-		canvas = document.getElementById('game');
-		ctx = canvas.getContext('2d');
+		view = Retroix.canvas('#game', LOGICAL.w, LOGICAL.h);
+		ctx = view.ctx;
+		board = Retroix.leaderboard(window.PADDIX_CONFIG);
+		screens = Retroix.screens(document);
 		[
 			'hudScore', 'hudStage', 'hudLives', 'combo',
-			'screenTitle', 'screenIntro', 'screenPause', 'screenGameover',
-			'screenInitials', 'screenLeaderboard', 'screenHowto',
 			'introStage', 'introName', 'introTag',
 			'goTitle', 'goScore', 'goSub',
-			'initScore', 'lbBody', 'lbMode', 'lbTitle', 'titleTop'
+			'initScore', 'initMount', 'lbBody', 'lbMode', 'lbTitle', 'titleTop'
 		].forEach(function (id) { el[id] = document.getElementById(id); });
 
-		resize();
-		window.addEventListener('resize', resize);
+		initEntry = Retroix.initials(el.initMount, { onEnter: submitInitials });
+		initEntry.bindKeys();
+
 		bindInput();
 		bindButtons();
 		showTitle();
-		lastTime = performance.now();
-		raf = requestAnimationFrame(loop);
-	}
-
-	function resize() {
-		dpr = Math.min(window.devicePixelRatio || 1, 2);
-		canvas.width = LOGICAL.w * dpr;
-		canvas.height = LOGICAL.h * dpr;
-		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		Retroix.loop(step).start();
 	}
 
 	/* ------------------------------ stages -------------------------------- */
@@ -177,9 +157,10 @@
 
 	function endGame(won) {
 		state = 'ending';
+		wonFlag = won;
 		if (won) { score += lives * 200; }
-		Leaderboard.qualifies(score).then(function (ok) {
-			if (ok) { showInitials(won); }
+		board.qualifies(score).then(function (ok) {
+			if (ok) { showInitials(); }
 			else { showGameover(won); }
 		});
 	}
@@ -194,96 +175,54 @@
 		showScreen('screenGameover');
 	}
 
-	/* --------------------------- initials entry --------------------------- */
+	/* --------------------------- initials / lb ---------------------------- */
 
-	var initSlots = ['A', 'A', 'A'];
-	var initCursor = 0;
-
-	function showInitials(won) {
+	function showInitials() {
 		state = 'initials';
-		initSlots = ['A', 'A', 'A'];
-		initCursor = 0;
+		initEntry.reset(); initEntry.active = true;
 		el.initScore.textContent = score.toLocaleString();
-		renderInitials();
 		showScreen('screenInitials');
-		el.screenInitials.dataset.won = won ? '1' : '';
-	}
-
-	function renderInitials() {
-		var slots = el.screenInitials.querySelectorAll('.slot');
-		slots.forEach(function (s, i) {
-			s.querySelector('.slot__ch').textContent = initSlots[i];
-			s.classList.toggle('slot--active', i === initCursor);
-		});
-	}
-
-	function cycleSlot(i, dir) {
-		var code = initSlots[i].charCodeAt(0) - 65;
-		code = (code + dir + 26) % 26;
-		initSlots[i] = String.fromCharCode(65 + code);
-		initCursor = i;
-		renderInitials();
 	}
 
 	function submitInitials() {
-		var won = el.screenInitials.dataset.won === '1';
-		var initials = initSlots.join('');
-		Leaderboard.submit(initials, score, stageIndex + 1).then(function () {
-			showLeaderboard(initials, won);
+		if (state !== 'initials') { return; }
+		initEntry.active = false;
+		var initials = initEntry.value();
+		board.submit(initials, score, stageIndex + 1).then(function () {
+			showLeaderboard(initials, wonFlag);
 		});
 	}
-
-	/* ----------------------------- leaderboard ---------------------------- */
 
 	function showLeaderboard(highlight, won) {
 		state = 'leaderboard';
 		el.lbTitle.textContent = won ? 'You beat Paddix!' : 'High Scores';
-		el.lbMode.textContent = Leaderboard.mode === 'supabase' ? 'online' : 'this device';
-		el.lbBody.innerHTML = '<tr><td colspan="4" class="lb-loading">Loading…</td></tr>';
+		el.lbMode.textContent = board.mode === 'supabase' ? 'online' : 'this device';
+		Retroix.renderLeaderboard(el.lbBody, null, { loadingText: 'Loading…' });
 		showScreen('screenLeaderboard');
-		Leaderboard.top().then(function (rows) {
-			if (!rows.length) { el.lbBody.innerHTML = '<tr><td colspan="4" class="lb-loading">No scores yet — be the first!</td></tr>'; return; }
-			var used = false;
-			el.lbBody.innerHTML = rows.map(function (row, i) {
-				var isMe = !used && highlight && row.initials === highlight && row.score === score;
-				if (isMe) { used = true; }
-				return '<tr' + (isMe ? ' class="lb-me"' : '') + '>' +
-					'<td>' + (i + 1) + '</td>' +
-					'<td class="lb-ini">' + escapeHtml(row.initials) + '</td>' +
-					'<td class="lb-score">' + Number(row.score).toLocaleString() + '</td>' +
-					'<td>' + (row.stage || '-') + '</td></tr>';
-			}).join('');
+		board.top().then(function (rows) {
+			Retroix.renderLeaderboard(el.lbBody, rows, {
+				columns: ['rank', 'initials', 'score', 'stage'],
+				highlightInitials: highlight, highlightScore: score,
+				emptyText: 'No scores yet — be the first!'
+			});
 		});
 	}
 
 	function refreshTitleTop() {
-		Leaderboard.top(1).then(function (rows) {
-			if (rows.length) {
-				el.titleTop.textContent = 'Best: ' + Number(rows[0].score).toLocaleString() + ' — ' + rows[0].initials;
-			} else {
-				el.titleTop.textContent = '';
-			}
-		});
-	}
-
-	function escapeHtml(s) {
-		return String(s).replace(/[&<>"]/g, function (c) {
-			return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+		board.top(1).then(function (rows) {
+			el.titleTop.textContent = rows.length ? 'Best: ' + Number(rows[0].score).toLocaleString() + ' — ' + rows[0].initials : '';
 		});
 	}
 
 	/* ------------------------------- update ------------------------------- */
 
-	function loop(now) {
-		var dt = Math.min((now - lastTime) / 1000, 0.05);
-		lastTime = now;
+	function step(dt) {
 		if (state === 'playing') { update(dt); }
 		else if (state === 'intro') {
 			introTimer -= dt;
 			if (introTimer <= 0) { beginPlay(); }
 		}
 		render();
-		raf = requestAnimationFrame(loop);
 	}
 
 	function update(dt) {
@@ -317,16 +256,14 @@
 			ball.x += ball.vx * f;
 			ball.y += ball.vy * f;
 
-			// walls
 			if (ball.x - BALL_R < 0) { ball.x = BALL_R; ball.vx = Math.abs(ball.vx); }
 			else if (ball.x + BALL_R > LOGICAL.w) { ball.x = LOGICAL.w - BALL_R; ball.vx = -Math.abs(ball.vx); }
 			if (ball.y - BALL_R < 0) { ball.y = BALL_R; ball.vy = Math.abs(ball.vy); }
 
-			// paddle
 			if (ball.vy > 0 && ball.y + BALL_R >= PADDLE_Y && ball.y - BALL_R < PADDLE_Y + PADDLE_H) {
 				if (ball.x >= paddle.x - paddle.w / 2 - BALL_R && ball.x <= paddle.x + paddle.w / 2 + BALL_R) {
 					var hit = clamp((ball.x - paddle.x) / (paddle.w / 2), -1, 1);
-					var ang = hit * 1.05; // up to ~60°
+					var ang = hit * 1.05;
 					var sp = targetSpeed();
 					ball.vx = Math.sin(ang) * sp;
 					ball.vy = -Math.abs(Math.cos(ang) * sp);
@@ -338,11 +275,9 @@
 
 			collideBricks(ball);
 
-			// normalise to the target speed so slow-mo applies immediately
 			var mag = hypot(ball.vx, ball.vy);
 			if (mag > 0) { var t = targetSpeed() / mag; ball.vx *= t; ball.vy *= t; }
 
-			// lost
 			if (ball.y - BALL_R > LOGICAL.h) { balls.splice(bi, 1); }
 		}
 		if (balls.length === 0) { loseLife(); }
@@ -352,20 +287,18 @@
 		for (var i = 0; i < bricks.length; i++) {
 			var b = bricks[i];
 			if (!b.alive) { continue; }
-			// closest point on brick to ball centre
 			var cx = clamp(ball.x, b.x, b.x + b.w);
 			var cy = clamp(ball.y, b.y, b.y + b.h);
 			var dx = ball.x - cx, dy = ball.y - cy;
 			if (dx * dx + dy * dy > BALL_R * BALL_R) { continue; }
 
-			// reflect on the axis of shallowest penetration
 			var overlapX = (BALL_R + b.w / 2) - Math.abs(ball.x - (b.x + b.w / 2));
 			var overlapY = (BALL_R + b.h / 2) - Math.abs(ball.y - (b.y + b.h / 2));
 			if (overlapX < overlapY) { ball.vx = -ball.vx; }
 			else { ball.vy = -ball.vy; }
 
 			hitBrick(b);
-			break; // one brick per ball per frame
+			break;
 		}
 	}
 
@@ -398,7 +331,6 @@
 			var p = powerups[i];
 			p.y += p.vy * f;
 			if (p.y > LOGICAL.h + 20) { powerups.splice(i, 1); continue; }
-			// catch
 			if (p.y >= PADDLE_Y - 6 && p.y <= PADDLE_Y + PADDLE_H + 6 &&
 				p.x >= paddle.x - paddle.w / 2 && p.x <= paddle.x + paddle.w / 2) {
 				applyPowerup(p.kind);
@@ -457,7 +389,6 @@
 		ctx.save();
 		if (shake > 0) { ctx.translate(rand(-shake, shake) * 0.4, rand(-shake, shake) * 0.4); }
 
-		// background
 		var g = ctx.createLinearGradient(0, 0, 0, LOGICAL.h);
 		g.addColorStop(0, stage ? stage.bg[0] : '#141e30');
 		g.addColorStop(1, stage ? stage.bg[1] : '#243b55');
@@ -482,7 +413,6 @@
 			roundRect(b.x, b.y, b.w, b.h, 5);
 			ctx.fillStyle = col;
 			ctx.fill();
-			// top gloss
 			ctx.fillStyle = 'rgba(255,255,255,.22)';
 			roundRect(b.x + 2, b.y + 2, b.w - 4, b.h * 0.4, 4);
 			ctx.fill();
@@ -579,12 +509,7 @@
 
 	/* ------------------------------ screens ------------------------------- */
 
-	function showScreen(id) {
-		['screenTitle', 'screenIntro', 'screenPause', 'screenGameover',
-		 'screenInitials', 'screenLeaderboard', 'screenHowto'].forEach(function (s) {
-			el[s].hidden = (s !== id);
-		});
-	}
+	function showScreen(id) { if (id) { screens.show(id); } else { screens.hideAll(); } }
 
 	function showTitle() {
 		state = 'title';
@@ -603,12 +528,10 @@
 
 	/* ------------------------------- input -------------------------------- */
 
-	function pointerX(clientX) {
-		var rect = canvas.getBoundingClientRect();
-		return clamp((clientX - rect.left) / rect.width * LOGICAL.w, 0, LOGICAL.w);
-	}
+	function pointerX(clientX) { return clamp(view.toLogical(clientX, 0).x, 0, LOGICAL.w); }
 
 	function bindInput() {
+		var canvas = view.canvas;
 		canvas.addEventListener('mousemove', function (e) { input.mouseX = pointerX(e.clientX); });
 		canvas.addEventListener('mousedown', function () { if (state === 'playing') { launchBall(); } });
 		canvas.addEventListener('touchstart', function (e) {
@@ -623,7 +546,7 @@
 
 		document.addEventListener('keydown', function (e) {
 			var k = e.key;
-			if (state === 'initials') { return handleInitialsKey(e); }
+			if (state === 'initials') { return; }   // Retroix initials entry handles keys
 			if (k === 'ArrowLeft') { input.left = true; input.mouseX = null; }
 			else if (k === 'ArrowRight') { input.right = true; input.mouseX = null; }
 			else if (k === ' ' || k === 'Enter') {
@@ -640,21 +563,6 @@
 		});
 	}
 
-	function handleInitialsKey(e) {
-		var k = e.key;
-		if (/^[a-zA-Z]$/.test(k)) {
-			initSlots[initCursor] = k.toUpperCase();
-			if (initCursor < 2) { initCursor++; }
-			renderInitials();
-		} else if (k === 'ArrowUp') { cycleSlot(initCursor, 1); }
-		else if (k === 'ArrowDown') { cycleSlot(initCursor, -1); }
-		else if (k === 'ArrowLeft') { initCursor = Math.max(0, initCursor - 1); renderInitials(); }
-		else if (k === 'ArrowRight') { initCursor = Math.min(2, initCursor + 1); renderInitials(); }
-		else if (k === 'Backspace') { initCursor = Math.max(0, initCursor - 1); renderInitials(); }
-		else if (k === 'Enter') { submitInitials(); }
-		e.preventDefault();
-	}
-
 	function bindButtons() {
 		on('btnPlay', startGame);
 		on('btnHow', function () { showScreen('screenHowto'); });
@@ -668,13 +576,6 @@
 		on('btnInitEnter', submitInitials);
 		on('btnResume', togglePause);
 		on('btnPauseMenu', showTitle);
-
-		// initials slot controls (touch)
-		el.screenInitials.querySelectorAll('.slot').forEach(function (slot, i) {
-			slot.querySelector('.slot__up').addEventListener('click', function () { cycleSlot(i, 1); });
-			slot.querySelector('.slot__down').addEventListener('click', function () { cycleSlot(i, -1); });
-			slot.addEventListener('click', function (e) { if (e.target === slot || e.target.classList.contains('slot__ch')) { initCursor = i; renderInitials(); } });
-		});
 	}
 
 	function on(id, fn) {

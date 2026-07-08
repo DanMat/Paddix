@@ -3,11 +3,13 @@
 <head>
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-	<meta name="description" content="Paddix — a retro canvas brick-breaker with 8 themed stages, power-ups and an online high-score leaderboard. Dependency-free vanilla JavaScript." />
+	<meta name="description" content="Paddix — a retro canvas brick-breaker with 8 themed stages, power-ups and an online high-score leaderboard. Built on the Retroix engine." />
 	<title>Paddix — retro brick breaker</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+	<!-- Retroix engine (retro UI theme + JS), loaded from jsDelivr — no build step -->
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/DanMat/Retroix@v0.1.0/retroix.css" />
 	<link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -23,7 +25,7 @@
 			<div class="combo" id="combo"></div>
 
 			<!-- Title -->
-			<div class="screen screen--title" id="screenTitle">
+			<div class="screen screen--title" data-screen="screenTitle" id="screenTitle">
 				<h1 class="logo">PADDIX</h1>
 				<p class="tagline">Break every brick across 8 stages.</p>
 				<p class="title-top" id="titleTop"></p>
@@ -35,7 +37,7 @@
 			</div>
 
 			<!-- Stage intro -->
-			<div class="screen screen--intro" id="screenIntro" hidden>
+			<div class="screen screen--intro" data-screen="screenIntro" id="screenIntro" hidden>
 				<p class="intro-stage" id="introStage">Stage 1</p>
 				<h2 class="intro-name" id="introName">Sunrise Bay</h2>
 				<p class="intro-tag" id="introTag">Warm up on the water</p>
@@ -43,7 +45,7 @@
 			</div>
 
 			<!-- Pause -->
-			<div class="screen" id="screenPause" hidden>
+			<div class="screen" data-screen="screenPause" id="screenPause" hidden>
 				<h2 class="screen-title">Paused</h2>
 				<div class="btns">
 					<button class="btn btn--primary" id="btnResume">Resume</button>
@@ -52,7 +54,7 @@
 			</div>
 
 			<!-- Game over / win -->
-			<div class="screen" id="screenGameover" hidden>
+			<div class="screen" data-screen="screenGameover" id="screenGameover" hidden>
 				<h2 class="screen-title" id="goTitle">Game Over</h2>
 				<p class="big-score" id="goScore">0</p>
 				<p class="screen-sub" id="goSub"></p>
@@ -63,38 +65,22 @@
 				</div>
 			</div>
 
-			<!-- Initials entry -->
-			<div class="screen" id="screenInitials" hidden>
+			<!-- Initials entry (Retroix builds the slots into #initMount) -->
+			<div class="screen" data-screen="screenInitials" id="screenInitials" hidden>
 				<h2 class="screen-title">New High Score!</h2>
 				<p class="big-score" id="initScore">0</p>
 				<p class="screen-sub">Enter your initials</p>
-				<div class="slots">
-					<div class="slot slot--active">
-						<button class="slot__up" aria-label="up">▲</button>
-						<span class="slot__ch">A</span>
-						<button class="slot__down" aria-label="down">▼</button>
-					</div>
-					<div class="slot">
-						<button class="slot__up" aria-label="up">▲</button>
-						<span class="slot__ch">A</span>
-						<button class="slot__down" aria-label="down">▼</button>
-					</div>
-					<div class="slot">
-						<button class="slot__up" aria-label="up">▲</button>
-						<span class="slot__ch">A</span>
-						<button class="slot__down" aria-label="down">▼</button>
-					</div>
-				</div>
+				<div id="initMount"></div>
 				<p class="hint">Type letters or use ▲▼ · Enter to submit</p>
 				<button class="btn btn--primary" id="btnInitEnter">Enter</button>
 			</div>
 
-			<!-- Leaderboard -->
-			<div class="screen" id="screenLeaderboard" hidden>
+			<!-- Leaderboard (Retroix fills #lbBody) -->
+			<div class="screen" data-screen="screenLeaderboard" id="screenLeaderboard" hidden>
 				<h2 class="screen-title" id="lbTitle">High Scores</h2>
 				<p class="screen-sub">Top scores · <span id="lbMode">this device</span></p>
-				<div class="lb-scroll">
-					<table class="lb">
+				<div class="rx-lb-scroll">
+					<table class="rx-lb">
 						<thead><tr><th>#</th><th>Name</th><th>Score</th><th>Stage</th></tr></thead>
 						<tbody id="lbBody"></tbody>
 					</table>
@@ -106,7 +92,7 @@
 			</div>
 
 			<!-- How to play -->
-			<div class="screen screen--howto" id="screenHowto" hidden>
+			<div class="screen screen--howto" data-screen="screenHowto" id="screenHowto" hidden>
 				<h2 class="screen-title">How to play</h2>
 				<ul class="howto">
 					<li><strong>Move</strong> the paddle with your <strong>mouse</strong>, <strong>arrow keys</strong>, or by dragging on touch.</li>
@@ -121,9 +107,9 @@
 		</div>
 	</div>
 
+	<script src="https://cdn.jsdelivr.net/gh/DanMat/Retroix@v0.1.0/retroix.js"></script>
 	<script src="js/config.js"></script>
 	<script src="js/stages.js"></script>
-	<script src="js/leaderboard.js"></script>
 	<script src="js/game.js"></script>
 </body>
 </html>

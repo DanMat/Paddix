@@ -52,8 +52,8 @@ all of Dan's games — point it at a free **Supabase** project:
    ```
 
 The anon key is designed to be public; the database is protected by the RLS
-policies in the SQL file. The leaderboard code (`js/leaderboard.js`) is written
-to be reused by other games — just change `gameId`.
+policies in the SQL file. The leaderboard lives in the shared
+[Retroix](https://github.com/DanMat/Retroix) engine — just change `gameId`.
 
 > Note: any client-side leaderboard can be spoofed by a determined user. The
 > validation constraints stop casual tampering, which is plenty for an arcade board.
@@ -70,16 +70,22 @@ python3 -m http.server 8000   # then visit http://localhost:8000
 
 ## How it works
 
+Paddix is built on **[Retroix](https://github.com/DanMat/Retroix)**, a tiny
+dependency-free retro game engine loaded from a CDN (no build step). Retroix
+provides the DPI-aware canvas, game loop, input, leaderboard, overlay screens
+and retro high-score entry; this repo is just the brick-breaker.
+
 | File | Responsibility |
 | --- | --- |
-| `js/game.js` | Canvas engine: render loop, paddle/ball/brick physics, power-ups, state machine. |
+| `js/game.js` | The brick-breaker: paddle/ball/brick physics, power-ups, stage flow. |
 | `js/stages.js` | Pure-data stage definitions (add a stage = add an object). |
-| `js/leaderboard.js` | Reusable high-score store: Supabase REST with a localStorage fallback. |
-| `js/config.js` | Supabase URL/key and game id. |
+| `js/config.js` | Supabase URL/key and game id, passed to `Retroix.leaderboard`. |
+| Retroix (CDN) | Canvas, loop, input, leaderboard, screens, initials, gfx. |
 
 ## Credits
 
-Rebuilt in vanilla JavaScript from the original 2011 jQuery version.
+Rebuilt in vanilla JavaScript from the original 2011 jQuery version, on top of
+the [Retroix](https://github.com/DanMat/Retroix) engine.
 
 ## License
 
