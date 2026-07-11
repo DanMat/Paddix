@@ -37,6 +37,23 @@
 		life:  { label: '+', color: '#ff5e7e', name: 'Extra life' }
 	};
 
+	// Iconic per-stage chiptunes (Retroix background music). Each stage loops one
+	// of these; they cycle so neighbouring stages never share a tune.
+	var STAGE_TRACKS = [
+		{ tempo: 128, voices: [
+			{ wave: 'square', vol: 0.26, notes: 'C5 E5 G5 C6 G5 E5 G5 A5 G5 E5 C5 E5 D5 - G4 -' },
+			{ wave: 'triangle', vol: 0.5, notes: 'C3 . . . F3 . . . G3 . . . C3 . . .' } ] },
+		{ tempo: 140, voices: [
+			{ wave: 'square', vol: 0.24, notes: 'A4 C5 E5 A5 E5 C5 E5 G5 F5 E5 D5 C5 E5 - A4 -' },
+			{ wave: 'triangle', vol: 0.5, notes: 'A2 . . . F2 . . . G2 . . . E2 . . .' } ] },
+		{ tempo: 116, voices: [
+			{ wave: 'square', vol: 0.26, notes: 'D5 F5 A5 D6 A5 F5 A5 C6 A5 F5 D5 F5 E5 - A4 -' },
+			{ wave: 'triangle', vol: 0.5, notes: 'D3 . . . A#2 . . . C3 . . . A2 . . .' } ] },
+		{ tempo: 152, voices: [
+			{ wave: 'square', vol: 0.24, notes: 'E5 G5 B5 E6 D6 B5 G5 B5 A5 G5 F#5 E5 B4 - E5 -' },
+			{ wave: 'sawtooth', vol: 0.32, notes: 'E3 E3 . . C3 . . . D3 . . . B2 . . .' } ] }
+	];
+
 	function roundRect(x, y, w, h, r) { Retroix.gfx.roundRect(ctx, x, y, w, h, r); }
 
 	/* ------------------------------- setup -------------------------------- */
@@ -82,6 +99,7 @@
 		timers.wide = timers.slow = 0;
 		combo = 0;
 		resetBall();
+		sfx.music(STAGE_TRACKS[idx % STAGE_TRACKS.length], { fade: 0.6 });
 	}
 
 	function makeBrick(ch, c, r) {
@@ -161,6 +179,7 @@
 	function endGame(won) {
 		state = 'ending';
 		wonFlag = won;
+		sfx.stopMusic(0.4);
 		if (won) { score += lives * 200; sfx.jingle('win'); }
 		else { sfx.jingle('gameover'); }
 		board.qualifies(score).then(function (ok) {
@@ -526,11 +545,12 @@
 		el.hudStage.textContent = 'Paddix';
 		el.hudLives.textContent = '';
 		refreshTitleTop();
+		sfx.music('title');
 	}
 
 	function togglePause() {
-		if (state === 'playing') { state = 'paused'; showScreen('screenPause'); }
-		else if (state === 'paused') { showScreen(null); state = 'playing'; }
+		if (state === 'playing') { state = 'paused'; showScreen('screenPause'); sfx.pauseMusic(); }
+		else if (state === 'paused') { showScreen(null); state = 'playing'; sfx.resumeMusic(); }
 	}
 
 	/* ------------------------------- input -------------------------------- */
