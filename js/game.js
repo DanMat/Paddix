@@ -25,6 +25,7 @@
 	// --- game state ---
 	var state = 'title';
 	var stageIndex = 0, score = 0, lives = 3, combo = 0, wonFlag = false;
+	var testMode = false, testDeaths = 0;   // autopilot: infinite balls + loss bucketing
 	var stage, paddle, balls, bricks, powerups, particles;
 	var timers = { wide: 0, slow: 0 };
 	var input = { mouseX: null, left: false, right: false };
@@ -79,6 +80,37 @@
 		bindButtons();
 		showTitle();
 		Retroix.loop(step).start();
+		setupAutopilot();
+	}
+
+	// Dev mode: Konami code -> a bot that tracks the ball with the paddle to test
+	// every stage is clearable. Infinite balls; if it loses 8 balls on one stage,
+	// that stage is flagged an unbeatable chokepoint.
+	function setupAutopilot() {
+		Retroix.autopilot({
+			start: function () { testMode = true; testDeaths = 0; if (state === 'title') { startGame(); } },
+			stop: function () { testMode = false; },
+			bot: function () {
+				if (state !== 'playing' || !balls || !balls.length) { return; }
+				var t = balls[0];
+				for (var i = 1; i < balls.length; i++) { if (balls[i].y > t.y) { t = balls[i]; } }   // lowest ball
+				var target = t.x;
+				// while the ball descends, offset the paddle to DEFLECT it toward the
+				// nearest surviving brick — otherwise it loops straight up forever.
+				if (t.vy > 0) {
+					var nb = null, bd = Infinity;
+					for (var k = 0; k < bricks.length; k++) { var b = bricks[k]; if (!b.alive || b.type === 'unbreakable') { continue; } var d = Math.abs(b.x + b.w / 2 - t.x) + Math.abs(b.y - t.y) * 0.2; if (d < bd) { bd = d; nb = b; } }
+					if (nb) { var aim = clamp((nb.x + nb.w / 2 - t.x) / 90, -1, 1) * 0.75; target = t.x - aim * (paddle.w / 2); }
+				}
+				input.mouseX = clamp(target, paddle.w / 2, LOGICAL.w - paddle.w / 2);
+				for (var j = 0; j < balls.length; j++) { if (balls[j].stuck) { launchBall(); break; } }
+			},
+			progress: function () { return stageIndex * 100000 + score; },
+			location: function () { return stageIndex; },
+			deaths: function () { return testDeaths; },
+			isWin: function () { return !!wonFlag; },
+			deathsPerSpot: 8, stuck: 20
+		});
 	}
 
 	/* ------------------------------ stages -------------------------------- */
@@ -163,6 +195,7 @@
 		lives--;
 		updateHud();
 		fx.shake(0.7); fx.flash('#ff5e7e', 0.35); sfx.explosion();
+		if (testMode) { testDeaths++; lives = 3; resetBall(); return; }   // infinite balls while testing
 		if (lives <= 0) { return endGame(false); }
 		resetBall();
 	}
