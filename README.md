@@ -29,34 +29,16 @@
 | Launch ball | Click · <kbd>Space</kbd> |
 | Pause | <kbd>P</kbd> or <kbd>Esc</kbd> |
 
-## High scores & the shared leaderboard
+## High scores
 
-Out of the box the leaderboard uses your browser's **localStorage**, so the game
-is fully playable with zero setup. To share scores across devices — and across
-all of Dan's games — point it at a free **Supabase** project:
+High scores go to a **shared Cloudflare leaderboard** — a Worker + D1
+([retroix-leaderboard](https://github.com/DanMat/retroix-leaderboard)) shared by all of
+Dan's Retroix games and namespaced by `gameId`, so this game's board is its own. It
+works out of the box (no account, no setup) and validates + caps scores server-side.
+Blank `apiUrl` in [`js/config.js`](js/config.js) to fall back to a local
+(per-browser) board.
 
-1. Create a free project at [supabase.com](https://supabase.com).
-2. In the **SQL editor**, run [`docs/supabase.sql`](docs/supabase.sql). It creates
-   one `scores` table (namespaced by a `game` column) that every game can share,
-   with row-level-security policies for safe public read/insert.
-3. In **Project settings → API**, copy your **Project URL** and the public
-   **anon key**.
-4. Paste them into [`js/config.js`](js/config.js):
-   ```js
-   window.PADDIX_CONFIG = {
-     supabaseUrl: 'https://YOUR-PROJECT.supabase.co',
-     supabaseAnonKey: 'YOUR-ANON-KEY',
-     gameId: 'paddix',
-     leaderboardSize: 10
-   };
-   ```
-
-The anon key is designed to be public; the database is protected by the RLS
-policies in the SQL file. The leaderboard lives in the shared
-[Retroix](https://github.com/DanMat/Retroix) engine — just change `gameId`.
-
-> Note: any client-side leaderboard can be spoofed by a determined user. The
-> validation constraints stop casual tampering, which is plenty for an arcade board.
+> Any client-side leaderboard can be spoofed by a determined player — it's for fun, not competition.
 
 ## Play locally
 
@@ -79,7 +61,7 @@ and retro high-score entry; this repo is just the brick-breaker.
 | --- | --- |
 | `js/game.js` | The brick-breaker: paddle/ball/brick physics, power-ups, stage flow. |
 | `js/stages.js` | Pure-data stage definitions (add a stage = add an object). |
-| `js/config.js` | Supabase URL/key and game id, passed to `Retroix.leaderboard`. |
+| `js/config.js` | Leaderboard API URL and game id, passed to `Retroix.leaderboard`. |
 | Retroix (CDN) | Canvas, loop, input, leaderboard, screens, initials, gfx. |
 
 ## Credits
